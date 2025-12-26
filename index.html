@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบคำนวณ OT พนักงาน (Landscape Print)</title>
+    <title>ระบบคำนวณ OT พนักงาน (Summary Update)</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -384,7 +384,9 @@ logistics_guy,1005,26-Sep-2025,17:00`;
 
                     idList.forEach(id => {
                         const employeeRecords = [];
-                        let totalOTHours = 0; let totalOTAmount = 0; let lateCount = 0; let totalLateMinutes = 0; let absentCount = 0; let daysWorked = 0;
+                        let totalOTHours = 0; let totalOTAmount = 0; let lateCount = 0; let totalLateMinutes = 0; 
+                        let absentCount = 0; let leaveCount = 0; // Added leaveCount
+                        let daysWorked = 0;
                         for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
                             const sortableDate = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
                             const displayDate = formatDate(d);
@@ -402,8 +404,21 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                             let isLogisticsBonus = false;
 
                             if (times.length === 0) {
-                                status = "ขาดงาน/ไม่พบข้อมูล"; bgColor = "bg-red-100";
-                                if (!isSun) absentCount++;
+                                if (isSun || isSpecial) {
+                                    bgColor = "bg-gray-200";
+                                    status = isSpecial ? "วันหยุดพิเศษ" : "วันหยุดอาทิตย์";
+                                } else {
+                                    // ตรวจสอบหมายเหตุเพื่อเปลี่ยนสถานะ
+                                    if (savedRemark && savedRemark.trim().length > 0) {
+                                        status = "ไม่มาทำงาน"; 
+                                        bgColor = "bg-red-50"; 
+                                        leaveCount++; // นับเป็นลางาน
+                                    } else {
+                                        status = "ขาดงาน/ไม่พบข้อมูล"; 
+                                        bgColor = "bg-red-100";
+                                        absentCount++; // นับเป็นขาดงาน
+                                    }
+                                }
                             } else {
                                 daysWorked++;
                                 timeIn = times[0]; timeOut = times[times.length - 1];
@@ -424,7 +439,11 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                                 }
                             }
 
-                            if (isSun) { bgColor = "bg-gray-200"; status = times.length > 0 ? "ทำงานวันอาทิตย์" : "วันหยุดอาทิตย์"; }
+                            // Holiday Work Override (Visual & Status)
+                            if ((isSun || isSpecial) && times.length > 0) {
+                                bgColor = "bg-gray-200"; 
+                                status = isSun ? "ทำงานวันอาทิตย์" : "ทำงานวันหยุดพิเศษ"; 
+                            }
                             
                             // Normal OT Calculation
                             if (times.length > 1) {
@@ -459,7 +478,7 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                             });
                         }
                         if (employeeRecords.length > 0) {
-                            results[id] = { info: salaryMap[id], records: employeeRecords, totalOTHours, totalOTAmount, lateCount, totalLateMinutes, absentCount, daysWorked };
+                            results[id] = { info: salaryMap[id], records: employeeRecords, totalOTHours, totalOTAmount, lateCount, totalLateMinutes, absentCount, leaveCount, daysWorked };
                         }
                     });
                     setProcessedData(results);
@@ -528,8 +547,9 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                                 <div className="col-span-1 md:col-span-2 bg-blue-50 p-4 rounded text-sm text-blue-800 border border-blue-200">
                                     <p className="font-bold">📘 คำอธิบายสี:</p>
                                     <div className="flex flex-wrap gap-4 mt-2">
-                                        <span className="flex items-center gap-1"><span className="w-4 h-4 bg-gray-200 border"></span> วันอาทิตย์</span>
+                                        <span className="flex items-center gap-1"><span className="w-4 h-4 bg-gray-200 border"></span> วันอาทิตย์/หยุดพิเศษ</span>
                                         <span className="flex items-center gap-1"><span className="w-4 h-4 bg-red-100 border"></span> ขาดงาน/ไม่มีข้อมูล</span>
+                                        <span className="flex items-center gap-1"><span className="w-4 h-4 bg-red-50 border"></span> ไม่มาทำงาน (มีหมายเหตุ)</span>
                                         <span className="flex items-center gap-1"><span className="w-4 h-4 bg-orange-100 border"></span> ลืมสแกนเข้า/ออก (ข้อมูลไม่ครบ)</span>
                                         <span className="flex items-center gap-1"><span className="w-4 h-4 bg-purple-100 border"></span> ออกระหว่างวัน (ลาชั่วโมง/พัก)</span>
                                         <span className="flex items-center gap-1"><span className="text-red-600 font-bold">12:00</span> สาย (>08:05)</span>
@@ -660,9 +680,15 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                                                                 <span className="text-red-600 print:text-black">มาสาย:</span> <b>{data.lateCount}</b> วัน 
                                                                 <span className="text-gray-600 print:text-black text-xs ml-1">({formatMinutesToHrs(data.totalLateMinutes)})</span>
                                                             </span>
+                                                            {/* แยกยอดขาดงาน/ลา */}
                                                             <span>
                                                                 <span className="text-red-600 print:text-black">ขาดงาน/ไม่พบข้อมูล:</span> <b>{data.absentCount}</b> วัน
                                                             </span>
+                                                            {data.leaveCount > 0 && (
+                                                                <span>
+                                                                    <span className="text-orange-600 print:text-black">ลา/มีหมายเหตุ:</span> <b>{data.leaveCount}</b> วัน
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         
                                                         <div className="text-xs text-gray-500">
