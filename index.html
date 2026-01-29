@@ -338,7 +338,8 @@ logistics_guy,1005,26-Sep-2025,17:00`;
                             if (id) {
                                 const deptStr = dept || "";
                                 const isDaily = deptStr.includes('รายวัน');
-                                const isLogistics = deptStr.includes('โลจิสติกส์') || deptStr.toLowerCase().includes('logistics');
+                                // เพิ่มเงื่อนไข "รับส่งสินค้า" ในการตรวจสอบ
+                                const isLogistics = deptStr.includes('โลจิสติกส์') || deptStr.toLowerCase().includes('logistics') || deptStr.includes('รับส่งสินค้า');
                                 
                                 salaryMap[id.trim()] = { 
                                     name: name?.trim(), 
